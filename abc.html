@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Show Management App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        .app-container {
+            width: 90%;
+            max-width: 450px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: block;
+        }
+        .home-screen button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            margin-top: 50px;
+        }
+        .main-menu h2 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .list-container {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        .list-container ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .list-container li {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .list-container li:hover {
+            background-color: #f9f9f9;
+        }
+        .list-container li:last-child {
+            border-bottom: none;
+        }
+        .list-container .show-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .list-container .show-item span {
+            font-weight: bold;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .modal-content h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .modal-content p {
+            color: #555;
+            line-height: 1.5;
+        }
+        .modal-content .buttons {
+            margin-top: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .modal-content button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .modal-content button.approve-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        .modal-content button.reject-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        .modal-content button.done-btn {
+            background-color: #007bff;
+            color: white;
+        }
+        .modal-content button.undo-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div id="homeScreen" class="screen active home-screen">
+            <h1>Show Manager</h1>
+            <p>Your portal for managing shows.</p>
+            <button onclick="goToMenu()">VIEW SHOWS</button>
+        </div>
+
+        <div id="mainMenu" class="screen main-menu">
+            <h2>Approved Shows</h2>
+            <div id="approvedList" class="list-container">
+                <ul id="approvedUl"></ul>
+            </div>
+            <h2>Upcoming Shows</h2>
+            <div id="upcomingList" class="list-container">
+                <ul id="upcomingUl"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <h3 id="detailsTitle"></h3>
+            <p id="detailsDescription"></p>
+            <div class="buttons">
+                <button class="reject-btn" onclick="closeDetailsModal()">REJECT</button>
+                <button class="approve-btn" onclick="approveCurrentShow()">APPROVE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <h3 id="confirmMessage"></h3>
+            <div class="buttons">
+                <button class="undo-btn" onclick="undoApproval()">UNDO</button>
+                <button class="done-btn" onclick="closeConfirmationModal()">DONE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const shows = {
+            approved: [
+                { name: "The Big Bang Theory", description: "A sitcom about a group of socially awkward physicists and their friends." },
+                { name: "Friends", description: "Six friends living in New York City navigate life, love, and careers." }
+            ],
+            upcoming: [
+                { name: "Jury Duty", description: "A reality show following a man who doesn't realize he's on a fake jury." },
+                { name: "Yellowjackets", description: "A group of high school soccer players must survive a plane crash in the wilderness." },
+                { name: "Severance", description: "Employees have their work memories surgically separated from their personal memories." }
+            ]
+        };
+
+        let lastApprovedShow = null;
+        let currentShow = null;
+
+        const homeScreen = document.getElementById('homeScreen');
+        const mainMenu = document.getElementById('mainMenu');
+        const approvedUl = document.getElementById('approvedUl');
+        const upcomingUl = document.getElementById('upcomingUl');
+        const detailsModal = document.getElementById('detailsModal');
+        const detailsTitle = document.getElementById('detailsTitle');
+        const detailsDescription = document.getElementById('detailsDescription');
+        const confirmationModal = document.getElementById('confirmationModal');
+        const confirmMessage = document.getElementById('confirmMessage');
+
+        function renderLists() {
+            approvedUl.innerHTML = '';
+            upcomingUl.innerHTML = '';
+
+            shows.approved.forEach(show => {
+                const li = document.createElement('li');
+                li.textContent = show.name;
+                approvedUl.appendChild(li);
+            });
+
+            shows.upcoming.forEach(show => {
+                const li = document.createElement('li');
+                li.textContent = show.name;
+                li.onclick = () => openDetailsModal(show);
+                upcomingUl.appendChild(li);
+            });
+        }
+
+        function goToMenu() {
+            homeScreen.classList.remove('active');
+            mainMenu.classList.add('active');
+            renderLists();
+        }
+
+        function openDetailsModal(show) {
+            currentShow = show;
+            detailsTitle.textContent = show.name;
+            detailsDescription.textContent = show.description;
+            detailsModal.style.display = 'flex';
+        }
+
+        function closeDetailsModal() {
+            detailsModal.style.display = 'none';
+        }
+
+        function approveCurrentShow() {
+            if (currentShow) {
+                const index = shows.upcoming.indexOf(currentShow);
+                if (index > -1) {
+                    const show = shows.upcoming.splice(index, 1)[0];
+                    shows.approved.push(show);
+                    lastApprovedShow = show;
+                    renderLists();
+                    closeDetailsModal();
+                    showConfirmationModal(`"${show.name}" has been successfully moved to Approved Shows.`);
+                }
+            }
+        }
+
+        function showConfirmationModal(message) {
+            confirmMessage.textContent = message;
+            confirmationModal.style.display = 'flex';
+        }
+
+        function closeConfirmationModal() {
+            confirmationModal.style.display = 'none';
+            lastApprovedShow = null;
+        }
+
+        function undoApproval() {
+            if (lastApprovedShow) {
+                const index = shows.approved.indexOf(lastApprovedShow);
+                if (index > -1) {
+                    const show = shows.approved.splice(index, 1)[0];
+                    shows.upcoming.push(show);
+                    renderLists();
+                }
+            }
+            closeConfirmationModal();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            homeScreen.classList.add('active');
+        });
+    </script>
+
+</body>
+</html>
