@@ -1,0 +1,8 @@
+
+1. The project has a virtual environment named show-uploader
+run source show_uploader/bin/activate to activate the envirenment 
+
+2. to run the app in the venv run python3 main.py
+
+3. for building pyinstaller is used with specifications in MySpec files, currently both the mac architectures are supported 
+
