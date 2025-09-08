@@ -33,6 +33,7 @@ class FirstScreen(Screen):
         # Switch to the second screen with a slide transition
         self.manager.transition = SlideTransition(direction='left')
         self.manager.current = 'second'
+        
 
 class MyFirstKivyApp(App):
     def build(self):

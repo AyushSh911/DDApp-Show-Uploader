@@ -1,4 +1,4 @@
-# DetailScreen.py (updated to call refresh on SecondScreen after approval)
+# DetailScreen.py (updated to fetch from correct TEST JSON and prevent duplicates)
 from kivy.uix.screenmanager import Screen, SlideTransition
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -11,6 +11,12 @@ from kivy.app import App
 import requests
 import json
 import boto3  # For AWS S3 interactions (install via pip install boto3)
+import sys
+import os  # For path joining
+from dotenv import load_dotenv  # For loading .env file (install via pip install python-dotenv)
+
+# Load environment variables from .env file in the root directory
+load_dotenv()
 
 
 class DetailScreen(Screen):
@@ -35,6 +41,12 @@ class DetailScreen(Screen):
         grid = GridLayout(cols=2, spacing=10, size_hint_y=None)
         grid.bind(minimum_height=grid.setter('height'))  # Bind for dynamic height
         
+        # Dynamically resolve font path (for bundled vs. development)
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            font_path = os.path.join(sys._MEIPASS, 'NotoSansDevanagari.ttf')
+        else:
+            font_path = 'NotoSansDevanagari.ttf'  # Local development path
+        
         for key, value in item_data.items():
             key_label = Label(text=key, size_hint_y=None, height=dp(40), halign='left', valign='middle')
             key_label.bind(size=key_label.setter('text_size'))
@@ -46,7 +58,7 @@ class DetailScreen(Screen):
                 height=dp(40), 
                 halign='left', 
                 valign='middle',
-                font_name='NotoSansDevanagari.ttf'  # Use the Hindi-supporting font
+                font_name=font_path  # Dynamic path
             )
             value_label.bind(size=value_label.setter('text_size'))
             grid.add_widget(value_label)
@@ -95,8 +107,8 @@ class DetailScreen(Screen):
             self.approve_show(show_id)
     
     def approve_show(self, show_id):
-        # Fetch current ShowIds.json
-        url = "https://s3.ap-south-1.amazonaws.com/co.techxr.system.backend.upload.dev/DurlabhDarshan/Jsons/ShowIds.json"
+        # Fetch current ShowIds_TEST.json (match SecondScreen)
+        url = "https://s3.ap-south-1.amazonaws.com/co.techxr.system.backend.upload.dev/DurlabhDarshan/Jsons/ShowIds_TEST.json"
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -110,20 +122,26 @@ class DetailScreen(Screen):
         coming_soon = json_data.get('commingSoonVideoShowIds', [])
         approved = json_data.get('approvedVideoShowIds', [])
         
+        # Ensure no duplicates and safe remove
         if show_id in coming_soon:
             coming_soon.remove(show_id)
+        if show_id not in approved:
             approved.append(show_id)
+        
+        # Optional: Sort lists to maintain order (if IDs are numeric strings)
+        coming_soon.sort(key=lambda x: int(x))
+        approved.sort(key=lambda x: int(x))
         
         json_data['commingSoonVideoShowIds'] = coming_soon
         json_data['approvedVideoShowIds'] = approved
         
         # Upload updated JSON to S3
         try:
-            # Replace with your AWS credentials
-            aws_access_key = 'AKIA4ALHXKCHJCLWLHTV'  # Provided by user
-            aws_secret_key = '9aQrjrHDS5IYscotkrDyjfVUZdSRq3Q2zVBQ2pA/'  # Provided by user
-            bucket_name = 'co.techxr.system.backend.upload.dev'
-            object_key = 'DurlabhDarshan/Jsons/ShowIds_TEST.json'
+            # Load credentials from .env
+            aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
+            aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+            bucket_name = os.environ.get('BUCKET_NAME', 'co.techxr.system.backend.upload.dev')  # Fallback if not in .env
+            object_key = os.environ.get('OBJECT_KEY', 'DurlabhDarshan/Jsons/ShowIds_TEST.json')  # Fallback if not in .env
             
             s3 = boto3.client('s3', aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key)
             s3.put_object(Bucket=bucket_name, Key=object_key, Body=json.dumps(json_data), ContentType='application/json')

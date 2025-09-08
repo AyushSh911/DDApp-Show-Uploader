@@ -1,4 +1,4 @@
-# ShowsList.py (updated - remove thumbnails fetch, use app.json_thumbnails in ItemButton)
+# ShowsList.py (fixed - with proper method definitions and refresh)
 from kivy.uix.screenmanager import Screen, SlideTransition
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -12,9 +12,11 @@ from kivy.app import App
 from kivy.properties import StringProperty
 import requests
 
+
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior, RecycleBoxLayout):
     ''' Adds selection and focus behavior to the view. '''
     pass
+
 
 class ItemButton(Button):
     item_id = StringProperty('')  # Property to hold the show ID
@@ -29,10 +31,15 @@ class ItemButton(Button):
         sm.transition = SlideTransition(direction='left')
         sm.current = 'detail'
 
+
 class SecondScreen(Screen):
     def __init__(self, **kwargs):
         super(SecondScreen, self).__init__(**kwargs)
-        
+        self.rv = None  # Will hold the RecycleView reference
+        self.layout = None  # Will hold the main layout reference
+        self.populate_list()  # Initial population
+    
+    def populate_list(self):
         # Fetch ShowIds JSON
         url_show_ids = "https://s3.ap-south-1.amazonaws.com/co.techxr.system.backend.upload.dev/DurlabhDarshan/Jsons/ShowIds_TEST.json"
         try:
@@ -55,40 +62,49 @@ class SecondScreen(Screen):
             video_title = json_thumbnails.get(show_id_str, {}).get('videoTitle', show_id_str)
             button_data.append({'text': video_title, 'item_id': show_id_str})
         
-        # Main layout
-        layout = BoxLayout(orientation='vertical', padding=2, spacing=2)
-        
-        # Header label
-        label = Label(
-            text="Unapproved Shows", 
-            font_size=24,
-            size_hint_y=None,
-            height=dp(50),
-            padding=[0, 30, 0, 0]
-        )
-        layout.add_widget(label)
-        
-        # RecycleView for the list
-        rv = RecycleView()
-        item_height = dp(56)
-        rv_layout = SelectableRecycleBoxLayout(
-            default_size=(dp(50), item_height),
-            default_size_hint=(1, None),
-            size_hint_y=None,
-            height=len(button_data) * item_height if button_data else dp(56),  # Dynamic height, min 56 for empty
-            orientation='vertical'
-        )
-        rv.add_widget(rv_layout)
-        rv.viewclass = 'ItemButton'  # Use custom button class
-        rv.data = button_data  # Data with text (title) and item_id (ID)
-        layout.add_widget(rv)
-        
-        # Back button
-        back_button = Button(text="Back", size_hint=(None, None), size=(200, 50))
-        back_button.bind(on_press=self.switch_back)
-        layout.add_widget(back_button)
-        
-        self.add_widget(layout)
+        # If layout doesn't exist, create it
+        if self.layout is None:
+            self.layout = BoxLayout(orientation='vertical', padding=2, spacing=2)
+            
+            # Header label
+            label = Label(
+                text="Unapproved Shows", 
+                font_size=24,
+                size_hint_y=None,
+                height=dp(50),
+                padding=[0, 30, 0, 0]
+            )
+            self.layout.add_widget(label)
+            
+            # RecycleView for the list
+            self.rv = RecycleView()
+            item_height = dp(56)
+            rv_layout = SelectableRecycleBoxLayout(
+                default_size=(dp(50), item_height),
+                default_size_hint=(1, None),
+                size_hint_y=None,
+                height=len(button_data) * item_height if button_data else dp(56),  # Dynamic height, min 56 for empty
+                orientation='vertical'
+            )
+            self.rv.add_widget(rv_layout)
+            self.rv.viewclass = 'ItemButton'  # Use custom button class
+            self.rv.data = button_data  # Data with text (title) and item_id (ID)
+            self.layout.add_widget(self.rv)
+            
+            # Back button
+            back_button = Button(text="Back", size_hint=(None, None), size=(200, 50))
+            back_button.bind(on_press=self.switch_back)
+            self.layout.add_widget(back_button)
+            
+            self.add_widget(self.layout)
+        else:
+            # Update existing RecycleView data and height
+            item_height = dp(56)
+            self.rv.children.height = len(button_data) * item_height if button_data else dp(56)
+            self.rv.data = button_data  # Update data
+    
+    def refresh_list(self):
+        self.populate_list()    
     
     def switch_back(self, instance):
         self.manager.transition = SlideTransition(direction='right')
