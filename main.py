@@ -1,14 +1,15 @@
-# main.py (updated)
+# main.py (updated to fetch JSON once and store in app)
 import kivy
 from kivy.app import App
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
+import requests
 
 # Import screens from their respective files
 from ShowsList import SecondScreen
-from DetailScreen import DetailScreen  # New import
+from DetailScreen import DetailScreen  # Assuming DetailScreen.py exists
 
 class FirstScreen(Screen):
     def __init__(self, **kwargs):
@@ -35,6 +36,16 @@ class FirstScreen(Screen):
 
 class MyFirstKivyApp(App):
     def build(self):
+        # Fetch VideoThumbnails JSON once here
+        url_thumbnails = "https://s3.ap-south-1.amazonaws.com/co.techxr.system.backend.upload.dev/DurlabhDarshan/Jsons/VideoThumbnails.json"
+        try:
+            response_thumbnails = requests.get(url_thumbnails)
+            response_thumbnails.raise_for_status()
+            self.json_thumbnails = response_thumbnails.json()
+        except Exception as e:
+            print(f"Error fetching VideoThumbnails JSON: {e}")
+            self.json_thumbnails = {}
+        
         # Create the screen manager
         sm = ScreenManager()
         sm.add_widget(FirstScreen(name='first'))

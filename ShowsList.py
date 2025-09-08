@@ -1,4 +1,4 @@
-# ShowsList.py (updated)
+# ShowsList.py (updated - remove thumbnails fetch, use app.json_thumbnails in ItemButton)
 from kivy.uix.screenmanager import Screen, SlideTransition
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -23,7 +23,9 @@ class ItemButton(Button):
         app = App.get_running_app()
         sm = app.root  # Assuming the root is the ScreenManager
         detail_screen = sm.get_screen('detail')
-        detail_screen.update_message(f"You pressed button {self.item_id}")
+        # Get the full data for this item_id from app's json_thumbnails
+        item_data = app.json_thumbnails.get(self.item_id, {})
+        detail_screen.update_details(self.item_id, item_data)
         sm.transition = SlideTransition(direction='left')
         sm.current = 'detail'
 
@@ -32,7 +34,7 @@ class SecondScreen(Screen):
         super(SecondScreen, self).__init__(**kwargs)
         
         # Fetch ShowIds JSON
-        url_show_ids = "https://s3.ap-south-1.amazonaws.com/co.techxr.system.backend.upload.dev/DurlabhDarshan/Jsons/ShowIds.json"
+        url_show_ids = "https://s3.ap-south-1.amazonaws.com/co.techxr.system.backend.upload.dev/DurlabhDarshan/Jsons/ShowIds_TEST.json"
         try:
             response_show_ids = requests.get(url_show_ids)
             response_show_ids.raise_for_status()
@@ -42,17 +44,11 @@ class SecondScreen(Screen):
             print(f"Error fetching ShowIds JSON: {e}")
             coming_soon_ids = []
         
-        # Fetch VideoThumbnails JSON
-        url_thumbnails = "https://s3.ap-south-1.amazonaws.com/co.techxr.system.backend.upload.dev/DurlabhDarshan/Jsons/VideoThumbnails.json"
-        try:
-            response_thumbnails = requests.get(url_thumbnails)
-            response_thumbnails.raise_for_status()
-            json_thumbnails = response_thumbnails.json()
-        except Exception as e:
-            print(f"Error fetching VideoThumbnails JSON: {e}")
-            json_thumbnails = {}
-        
         # Prepare data: Use videoTitle if available, else fallback to ID
+        # Fetch thumbnails from app (assumed fetched in build)
+        app = App.get_running_app()
+        json_thumbnails = app.json_thumbnails
+        
         button_data = []
         for show_id in coming_soon_ids:
             show_id_str = str(show_id)
